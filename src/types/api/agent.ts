@@ -169,6 +169,14 @@ export interface IAgentInfo {
   knowledgeIds: string // 来自 agent_knowledge_bindings
   openingMessage: string
   openingQuestions: string
+  // 专家中心卡面字段（对齐 WorkBuddy plugin.json v2.0）
+  categoryId: string
+  profession: string      // JSON {zh,en}
+  avatar: string
+  tags: string            // JSON [{zh,en}]
+  nameI18n: string        // JSON {zh,en}
+  descriptionI18n: string // JSON {zh,en}
+  expertType: string
   variables: string
   workflowConfig: string
   status: number
@@ -215,6 +223,13 @@ export interface ICreateAgentReq {
   knowledgeIds?: string
   openingMessage?: string
   openingQuestions?: string
+  categoryId?: string
+  profession?: string
+  avatar?: string
+  tags?: string
+  nameI18n?: string
+  descriptionI18n?: string
+  expertType?: string
   variables?: string
   workflowConfig?: string
   status?: number

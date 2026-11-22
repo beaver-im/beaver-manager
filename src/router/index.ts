@@ -164,6 +164,11 @@ const router = createRouter({
               path: "digitals",
               name: "官方数字伙伴",
               component: () => import("@/pages/agent/digitals/index.vue")
+            },
+            {
+              path: "experts",
+              name: "专家中心",
+              component: () => import("@/pages/agent/experts/index.vue")
             }
           ]
         },

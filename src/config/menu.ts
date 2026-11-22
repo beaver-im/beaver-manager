@@ -96,7 +96,8 @@ export const menuConfig: MenuItem[] = [
       { path: "/agent/models", title: "模型", icon: Coin },
       { path: "/agent/tools", title: "技能", icon: SetUp },
       { path: "/agent/mcp", title: "MCP", icon: Connection },
-      { path: "/agent/digitals", title: "官方数字伙伴", icon: Avatar }
+      { path: "/agent/digitals", title: "官方数字伙伴", icon: Avatar },
+      { path: "/agent/experts", title: "专家中心", icon: Avatar }
     ]
   },
   {
