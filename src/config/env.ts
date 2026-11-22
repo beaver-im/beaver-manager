@@ -28,7 +28,7 @@ export const config = {
 
   /**
    * 网关 origin：只含协议 + 域名 + 端口，不含任何路径。
-   * 完整路径写在每个接口的 url 里：/beaver/admin/backend/{group}/v1/{action}
+   * 完整路径写在每个接口的 url 里：/beaver-admin/api/backend/{group}/v1/{action}
    */
   baseAPI: import.meta.env.VITE_API_BASE,
 }
