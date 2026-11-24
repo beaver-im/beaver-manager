@@ -92,100 +92,114 @@
   </el-dialog>
 </template>
 
-<script setup lang="ts">
-import { computed, ref, watch } from "vue"
+<script lang="ts">
+import { computed, defineComponent, ref, toRefs, watch } from "vue"
+import type { PropType } from "vue"
 import { ElMessage } from "element-plus"
 import { checkKnowledgeSourceDocApi } from "@/api/knowledgeSource"
 import type { ICheckKnowledgeSourceDocRes } from "@/types/api/knowledgeSource"
 
-const props = withDefaults(
-  defineProps<{
-    modelValue: boolean
-    scene: string
+export default defineComponent({
+  name: "LinkCheckDialog",
+  props: {
+    modelValue: { type: Boolean, required: true },
+    scene: { type: String, required: true },
     /** doc=海狸在线文档 / faq=Q&A 文档 */
-    docType?: "doc" | "faq"
-  }>(),
-  { docType: "doc" }
-)
+    docType: { type: String as PropType<"doc" | "faq">, default: "doc" }
+  },
+  emits: ["update:modelValue", "confirm"],
+  setup(props, { emit }) {
+    const dialogTitle = computed(() =>
+      props.docType === "faq" ? "添加 Q&A 文档" : "添加海狸在线文档"
+    )
+    const tipText = computed(() =>
+      props.docType === "faq"
+        ? "粘贴海狸在线表格或问答文档链接，系统会校验链接并识别文档。检查通过后才能确认加入。"
+        : "粘贴海狸在线文档或表格链接，系统会校验链接并识别文档。检查通过后才能确认加入。"
+    )
+    const placeholder = computed(() =>
+      props.docType === "faq"
+        ? "https://doc.beaver.im/sheet/xxx 或裸文档 ID"
+        : "https://doc.beaver.im/d/xxx 或裸文档 ID"
+    )
 
-const emit = defineEmits<{
-  (e: "update:modelValue", value: boolean): void
-  (e: "confirm", payload: { docUrl: string; docId: string; title: string }): void
-}>()
+    const raw = ref("")
+    const checking = ref(false)
+    const result = ref<ICheckKnowledgeSourceDocRes | null>(null)
+    /** 记录已检查过的原始输入；一旦用户改动就作废检查结果，必须重新检查 */
+    const checkedRaw = ref("")
 
-const dialogTitle = computed(() =>
-  props.docType === "faq" ? "添加 Q&A 文档" : "添加海狸在线文档"
-)
-const tipText = computed(() =>
-  props.docType === "faq"
-    ? "粘贴海狸在线表格或问答文档链接，系统会校验链接并识别文档。检查通过后才能确认加入。"
-    : "粘贴海狸在线文档或表格链接，系统会校验链接并识别文档。检查通过后才能确认加入。"
-)
-const placeholder = computed(() =>
-  props.docType === "faq"
-    ? "https://doc.beaver.im/sheet/xxx 或裸文档 ID"
-    : "https://doc.beaver.im/d/xxx 或裸文档 ID"
-)
+    const canConfirm = computed(() => Boolean(result.value?.valid) && raw.value.trim() === checkedRaw.value)
 
-const raw = ref("")
-const checking = ref(false)
-const result = ref<ICheckKnowledgeSourceDocRes | null>(null)
-/** 记录已检查过的原始输入；一旦用户改动就作废检查结果，必须重新检查 */
-const checkedRaw = ref("")
-
-const canConfirm = computed(() => Boolean(result.value?.valid) && raw.value.trim() === checkedRaw.value)
-
-watch(raw, value => {
-  if (!result.value) return
-  if (value.trim() !== checkedRaw.value) result.value = null
-})
-
-function reset() {
-  raw.value = ""
-  checking.value = false
-  result.value = null
-  checkedRaw.value = ""
-}
-
-function errorMessage(err: unknown, fallback: string): string {
-  if (err instanceof Error && err.message) return err.message
-  if (err && typeof err === "object" && "msg" in err) {
-    return String((err as { msg?: string }).msg || fallback)
-  }
-  return fallback
-}
-
-async function runCheck() {
-  const docUrl = raw.value.trim()
-  if (!docUrl) return
-  checking.value = true
-  result.value = null
-  try {
-    const res = await checkKnowledgeSourceDocApi({
-      scene: props.scene,
-      docUrl
+    watch(raw, value => {
+      if (!result.value) return
+      if (value.trim() !== checkedRaw.value) result.value = null
     })
-    if (res.code !== 0) throw new Error(res.msg || "检查失败")
-    result.value = res.result ?? null
-    checkedRaw.value = docUrl
-  } catch (err) {
-    result.value = { valid: false, msg: errorMessage(err, "检查失败") }
-    checkedRaw.value = docUrl
-  } finally {
-    checking.value = false
-  }
-}
 
-function confirm() {
-  if (!canConfirm.value || !result.value?.valid) return
-  emit("confirm", {
-    docUrl: checkedRaw.value,
-    docId: result.value.docId || "",
-    title: result.value.title || result.value.docId || "在线文档"
-  })
-  ElMessage.success("检查通过，已加入待导入列表")
-  emit("update:modelValue", false)
-}
+    function reset() {
+      raw.value = ""
+      checking.value = false
+      result.value = null
+      checkedRaw.value = ""
+    }
+
+    function errorMessage(err: unknown, fallback: string): string {
+      if (err instanceof Error && err.message) return err.message
+      if (err && typeof err === "object" && "msg" in err) {
+        return String((err as { msg?: string }).msg || fallback)
+      }
+      return fallback
+    }
+
+    async function runCheck() {
+      const docUrl = raw.value.trim()
+      if (!docUrl) return
+      checking.value = true
+      result.value = null
+      try {
+        const res = await checkKnowledgeSourceDocApi({
+          scene: props.scene,
+          docUrl
+        })
+        if (res.code !== 0) throw new Error(res.msg || "检查失败")
+        result.value = res.result ?? null
+        checkedRaw.value = docUrl
+      } catch (err) {
+        result.value = { valid: false, msg: errorMessage(err, "检查失败") }
+        checkedRaw.value = docUrl
+      } finally {
+        checking.value = false
+      }
+    }
+
+    function confirm() {
+      if (!canConfirm.value || !result.value?.valid) return
+      emit("confirm", {
+        docUrl: checkedRaw.value,
+        docId: result.value.docId || "",
+        title: result.value.title || result.value.docId || "在线文档"
+      })
+      ElMessage.success("检查通过，已加入待导入列表")
+      emit("update:modelValue", false)
+    }
+
+    return {
+      ...toRefs(props),
+      emit,
+      dialogTitle,
+      tipText,
+      placeholder,
+      raw,
+      checking,
+      result,
+      checkedRaw,
+      canConfirm,
+      reset,
+      runCheck,
+      confirm
+    }
+  }
+})
 </script>
 
 <style scoped lang="less">

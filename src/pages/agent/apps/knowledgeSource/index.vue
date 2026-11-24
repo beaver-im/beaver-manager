@@ -65,8 +65,8 @@
   </div>
 </template>
 
-<script setup lang="ts">
-import { computed, ref, watch } from "vue"
+<script lang="ts">
+import { computed, defineComponent, ref, watch } from "vue"
 import { useRoute, useRouter } from "vue-router"
 import { ElMessage } from "element-plus"
 import { detailKnowledgeSourceApi } from "@/api/knowledgeSource"
@@ -75,87 +75,107 @@ import {
   type IKnowledgeIndexConfig,
   type IKnowledgeSourceItem
 } from "@/types/api/knowledgeSource"
-import KsDetailView from "./detail/KsDetailView.vue"
-import KsAddFileWizard from "./KsAddFileWizard.vue"
+import KsDetailView from "./detail/ksDetailView.vue"
+import KsAddFileWizard from "./ksAddFileWizard.vue"
 
-const route = useRoute()
-const router = useRouter()
+export default defineComponent({
+  name: "KnowledgeSourceIndex",
+  components: { KsDetailView, KsAddFileWizard },
+  setup() {
+    const route = useRoute()
+    const router = useRouter()
 
-const scene = computed(() => String(route.params.scene || ""))
-const knowledgeSourceId = computed(() => String(route.params.knowledgeSourceId || ""))
-const addMode = computed(() => route.query.add === "1")
+    const scene = computed(() => String(route.params.scene || ""))
+    const knowledgeSourceId = computed(() => String(route.params.knowledgeSourceId || ""))
+    const addMode = computed(() => route.query.add === "1")
 
-const source = ref<IKnowledgeSourceItem | null>(null)
-const loading = ref(false)
-const showWizard = ref(false)
-const indexConfig = ref<IKnowledgeIndexConfig>(parseKnowledgeIndexConfig())
+    const source = ref<IKnowledgeSourceItem | null>(null)
+    const loading = ref(false)
+    const showWizard = ref(false)
+    const indexConfig = ref<IKnowledgeIndexConfig>(parseKnowledgeIndexConfig())
 
-function errorMessage(err: unknown, fallback: string): string {
-  if (err instanceof Error && err.message) return err.message
-  if (err && typeof err === "object" && "msg" in err) {
-    return String((err as { msg?: string }).msg || fallback)
+    function errorMessage(err: unknown, fallback: string): string {
+      if (err instanceof Error && err.message) return err.message
+      if (err && typeof err === "object" && "msg" in err) {
+        return String((err as { msg?: string }).msg || fallback)
+      }
+      return fallback
+    }
+
+    async function loadSource() {
+      if (!scene.value || !knowledgeSourceId.value) return
+      loading.value = true
+      try {
+        const res = await detailKnowledgeSourceApi({
+          scene: scene.value,
+          knowledgeSourceId: knowledgeSourceId.value
+        })
+        if (res.code !== 0) throw new Error(res.msg || "加载知识源失败")
+        source.value = res.result?.source ?? null
+        indexConfig.value = parseKnowledgeIndexConfig(source.value?.indexConfig)
+      } catch (err) {
+        ElMessage.error(errorMessage(err, "加载知识源失败"))
+        source.value = null
+      } finally {
+        loading.value = false
+      }
+    }
+
+    function clearAddQuery() {
+      if (!addMode.value) return
+      router.replace({
+        name: "AgentKnowledgeSourceDetail",
+        params: { scene: scene.value, knowledgeSourceId: knowledgeSourceId.value },
+        query: {}
+      })
+    }
+
+    function backToList() {
+      router.push({
+        path: "/agent/apps/detail",
+        query: { scene: scene.value, tab: "knowledge" }
+      })
+    }
+
+    function leaveWizard() {
+      showWizard.value = false
+      clearAddQuery()
+    }
+
+    function onWizardDone() {
+      // 保留在「处理完成」页让用户看到结果，点「返回文档列表」再回三分区。
+      void loadSource()
+      clearAddQuery()
+    }
+
+    function onDeleted() {
+      backToList()
+    }
+
+    watch(
+      () => [scene.value, knowledgeSourceId.value],
+      () => {
+        showWizard.value = addMode.value
+        void loadSource()
+      },
+      { immediate: true }
+    )
+
+    return {
+      loading,
+      source,
+      showWizard,
+      scene,
+      knowledgeSourceId,
+      indexConfig,
+      backToList,
+      loadSource,
+      leaveWizard,
+      onWizardDone,
+      onDeleted
+    }
   }
-  return fallback
-}
-
-async function loadSource() {
-  if (!scene.value || !knowledgeSourceId.value) return
-  loading.value = true
-  try {
-    const res = await detailKnowledgeSourceApi({
-      scene: scene.value,
-      knowledgeSourceId: knowledgeSourceId.value
-    })
-    if (res.code !== 0) throw new Error(res.msg || "加载知识源失败")
-    source.value = res.result?.source ?? null
-    indexConfig.value = parseKnowledgeIndexConfig(source.value?.indexConfig)
-  } catch (err) {
-    ElMessage.error(errorMessage(err, "加载知识源失败"))
-    source.value = null
-  } finally {
-    loading.value = false
-  }
-}
-
-function clearAddQuery() {
-  if (!addMode.value) return
-  router.replace({
-    name: "AgentKnowledgeSourceDetail",
-    params: { scene: scene.value, knowledgeSourceId: knowledgeSourceId.value },
-    query: {}
-  })
-}
-
-function backToList() {
-  router.push({
-    path: "/agent/apps/detail",
-    query: { scene: scene.value, tab: "knowledge" }
-  })
-}
-
-function leaveWizard() {
-  showWizard.value = false
-  clearAddQuery()
-}
-
-function onWizardDone() {
-  // 保留在「处理完成」页让用户看到结果，点「返回文档列表」再回三分区。
-  void loadSource()
-  clearAddQuery()
-}
-
-function onDeleted() {
-  backToList()
-}
-
-watch(
-  () => [scene.value, knowledgeSourceId.value],
-  () => {
-    showWizard.value = addMode.value
-    void loadSource()
-  },
-  { immediate: true }
-)
+})
 </script>
 
 <style scoped lang="less">

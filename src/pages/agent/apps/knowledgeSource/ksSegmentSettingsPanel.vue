@@ -19,7 +19,7 @@
   beaver-manager-header-v1
 
   文本分段与清洗：添加文件向导第二步 / 单文档分段设置共用。
-  结构对齐 cloud-console 的 KsSegmentSettingsPanel，图标改为内联 SVG 以免引入静态资源。
+  结构对齐 cloud-console 的 KsSegmentSettingsPanel，图标使用静态 SVG 资源。
 -->
 
 <template>
@@ -36,16 +36,7 @@
           @click="setSegmentMode('auto')"
         >
           <span class="option-card__badge">推荐</span>
-          <svg class="option-card__icon option-card__icon--spark" viewBox="0 0 24 24" aria-hidden="true">
-            <path
-              d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9L12 2z"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.6"
-              stroke-linejoin="round"
-            />
-            <path d="M18.5 16.5l.7 2.3 2.3.7-2.3.7-.7 2.3-.7-2.3-2.3-.7 2.3-.7.7-2.3z" fill="currentColor" />
-          </svg>
+          <img class="option-card__icon option-card__icon--spark" :src="sparkIcon" alt="" aria-hidden="true" />
           <span class="option-card__head">
             <span class="option-card__radio" :class="{ 'option-card__radio--on': localConfig.segmentMode === 'auto' }" />
             <span class="option-card__name">自动分段与清洗</span>
@@ -58,13 +49,7 @@
           :class="{ 'option-card--active': localConfig.segmentMode === 'custom' }"
           @click="setSegmentMode('custom')"
         >
-          <svg class="option-card__icon option-card__icon--sliders" viewBox="0 0 24 24" aria-hidden="true">
-            <g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
-              <path d="M4 7h10M18 7h2M4 17h2M10 17h10" />
-              <circle cx="16" cy="7" r="2" />
-              <circle cx="8" cy="17" r="2" />
-            </g>
-          </svg>
+          <img class="option-card__icon option-card__icon--sliders" :src="slidersIcon" alt="" aria-hidden="true" />
           <span class="option-card__head">
             <span class="option-card__radio" :class="{ 'option-card__radio--on': localConfig.segmentMode === 'custom' }" />
             <span class="option-card__name">自定义</span>
@@ -105,15 +90,7 @@
           class="option-card option-card--active"
           @click="localConfig.retrievalMode = 'auto'"
         >
-          <svg class="option-card__icon option-card__icon--spark" viewBox="0 0 24 24" aria-hidden="true">
-            <path
-              d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9L12 2z"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.6"
-              stroke-linejoin="round"
-            />
-          </svg>
+          <img class="option-card__icon option-card__icon--spark" :src="plainSparkIcon" alt="" aria-hidden="true" />
           <span class="option-card__head">
             <span class="option-card__radio option-card__radio--on" />
             <span class="option-card__name">默认检索方式</span>
@@ -138,10 +115,14 @@
   </div>
 </template>
 
-<script setup lang="ts">
-import { ref, watch } from "vue"
+<script lang="ts">
+import { defineComponent, ref, toRefs, watch } from "vue"
+import type { PropType } from "vue"
 import type { IKnowledgeIndexConfig } from "@/types/api/knowledgeSource"
-import LibraryTypeIcon from "./LibraryTypeIcon.vue"
+import LibraryTypeIcon from "./libraryTypeIcon.vue"
+import sparkIcon from "@/assets/images/knowledgeSource/segmentSpark.svg"
+import plainSparkIcon from "@/assets/images/knowledgeSource/segmentSparkPlain.svg"
+import slidersIcon from "@/assets/images/knowledgeSource/segmentSliders.svg"
 
 interface PreprocessDocItem {
   key: string
@@ -149,40 +130,48 @@ interface PreprocessDocItem {
   iconType: "word" | "excel" | "faq"
 }
 
-const props = withDefaults(
-  defineProps<{
-    indexConfig: IKnowledgeIndexConfig
-    preprocessDocs?: PreprocessDocItem[]
-    showPreprocess?: boolean
-  }>(),
-  { preprocessDocs: () => [], showPreprocess: true }
-)
-
-const emit = defineEmits<{
-  (e: "update:indexConfig", value: IKnowledgeIndexConfig): void
-}>()
-
-const localConfig = ref<IKnowledgeIndexConfig>({ ...props.indexConfig })
-
-watch(
-  () => props.indexConfig,
-  value => {
-    localConfig.value = { ...value }
+export default defineComponent({
+  name: "KsSegmentSettingsPanel",
+  components: { LibraryTypeIcon },
+  props: {
+    indexConfig: { type: Object as PropType<IKnowledgeIndexConfig>, required: true },
+    preprocessDocs: { type: Array as PropType<PreprocessDocItem[]>, default: () => [] },
+    showPreprocess: { type: Boolean, default: true }
   },
-  { deep: true }
-)
+  emits: ["update:indexConfig"],
+  setup(props, { emit }) {
+    const localConfig = ref<IKnowledgeIndexConfig>({ ...props.indexConfig })
 
-watch(
-  localConfig,
-  value => {
-    emit("update:indexConfig", { ...value })
-  },
-  { deep: true }
-)
+    watch(
+      () => props.indexConfig,
+      value => {
+        localConfig.value = { ...value }
+      },
+      { deep: true }
+    )
 
-function setSegmentMode(mode: "auto" | "custom") {
-  localConfig.value = { ...localConfig.value, segmentMode: mode }
-}
+    watch(
+      localConfig,
+      value => {
+        emit("update:indexConfig", { ...value })
+      },
+      { deep: true }
+    )
+
+    function setSegmentMode(mode: "auto" | "custom") {
+      localConfig.value = { ...localConfig.value, segmentMode: mode }
+    }
+
+    return {
+      ...toRefs(props),
+      localConfig,
+      setSegmentMode,
+      sparkIcon,
+      plainSparkIcon,
+      slidersIcon
+    }
+  }
+})
 </script>
 
 <style scoped lang="less">

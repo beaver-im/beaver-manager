@@ -60,7 +60,15 @@ import type {
   IUpdateAgentMcpServerReq,
   IUpdateAgentToolReq,
   IParseAgentToolFileReq,
-  IParseAgentToolFileRes
+  IParseAgentToolFileRes,
+  IGetExpertListReq,
+  IGetExpertListRes,
+  IGetExpertReq,
+  IGetExpertRes,
+  ICreateExpertReq,
+  ICreateExpertRes,
+  IUpdateExpertReq,
+  IDeleteExpertReq
 } from "@/types/api/agent"
 import config from "@/config/env"
 import { ajax } from "@/utils/request"
@@ -117,6 +125,47 @@ export function deleteAgentApi(data: IDeleteAgentReq) {
   return ajax<void>({
     method: "DELETE",
     url: `${config.baseAPI}/beaver-admin/api/backend/agent/v1/delete`,
+    data
+  })
+}
+
+// —— 专家货架（走 backend expert_*，底层 AI console *_expert）——
+export function getExpertListApi(params: IGetExpertListReq) {
+  return ajax<IGetExpertListRes>({
+    method: "GET",
+    url: `${config.baseAPI}/beaver-admin/api/backend/agent/v1/expert_list`,
+    params
+  })
+}
+
+export function getExpertApi(params: IGetExpertReq) {
+  return ajax<IGetExpertRes>({
+    method: "GET",
+    url: `${config.baseAPI}/beaver-admin/api/backend/agent/v1/expert_detail`,
+    params
+  })
+}
+
+export function createExpertApi(data: ICreateExpertReq) {
+  return ajax<ICreateExpertRes>({
+    method: "POST",
+    url: `${config.baseAPI}/beaver-admin/api/backend/agent/v1/expert_create`,
+    data
+  })
+}
+
+export function updateExpertApi(data: IUpdateExpertReq) {
+  return ajax<void>({
+    method: "PUT",
+    url: `${config.baseAPI}/beaver-admin/api/backend/agent/v1/expert_update`,
+    data
+  })
+}
+
+export function deleteExpertApi(data: IDeleteExpertReq) {
+  return ajax<void>({
+    method: "DELETE",
+    url: `${config.baseAPI}/beaver-admin/api/backend/agent/v1/expert_delete`,
     data
   })
 }

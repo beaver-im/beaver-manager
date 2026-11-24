@@ -136,13 +136,13 @@ const router = createRouter({
             {
               path: "apps/:scene/knowledge/create",
               name: "AgentKnowledgeSourceCreate",
-              component: () => import("@/pages/agent/apps/knowledge-source/create.vue"),
+              component: () => import("@/pages/agent/apps/knowledgeSource/create.vue"),
               meta: { activeMenu: "/agent/apps" }
             },
             {
               path: "apps/:scene/knowledge/:knowledgeSourceId",
               name: "AgentKnowledgeSourceDetail",
-              component: () => import("@/pages/agent/apps/knowledge-source/index.vue"),
+              component: () => import("@/pages/agent/apps/knowledgeSource/index.vue"),
               meta: { activeMenu: "/agent/apps" }
             },
             {
@@ -215,7 +215,7 @@ const router = createRouter({
                 {
                   path: "packages",
                   name: "表情包合集",
-                  component: () => import("@/pages/assets/emoji-packages/index.vue")
+                  component: () => import("@/pages/assets/emojiPackages/index.vue")
                 }
               ]
             }
@@ -256,7 +256,7 @@ const router = createRouter({
     {
       path: "/error/404",
       name: "404",
-      component: () => import("@/pages/common/error/404.vue")
+      component: () => import("@/pages/common/error/notFound.vue")
     },
     {
       path: "/:pathMatch(.*)*",
@@ -265,7 +265,7 @@ const router = createRouter({
   ]
 })
 
-router.beforeEach((to, from, next) => {
+router.beforeEach((to, _from, next) => {
   const userStore = useUserStore()
   if (to.path === "/login") {
     next()

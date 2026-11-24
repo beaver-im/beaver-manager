@@ -1,93 +1,67 @@
 /**
- * 智能体详情 Tab 共享工具函数
+ * 智能体详情 Tab 共享工具函数。
+ *
+ * 编排详情唯一真相源是 Agent.config_detail（type=1 prompt / 2 workflow），
+ * 内部键 snake_case，与 AI 侧同构原样透传。这里只做空值兜底与深拷贝。
  */
+import type { IPromptVariable, IAgentConfigDetail, IAgentPromptDetail } from "@/types/api/agent"
 
 export type GenerationStyle = "stable" | "balanced" | "creative" | "custom"
 
-export interface IModelParams {
-  temperature: number
-  topP: number
-  maxOutputTokens: number
-}
+export { type IPromptVariable }
 
-export const GENERATION_STYLE_PARAMS: Record<Exclude<GenerationStyle, "custom">, IModelParams> = {
-  stable: { temperature: 0.3, topP: 0.85, maxOutputTokens: 4096 },
-  balanced: { temperature: 0.7, topP: 0.9, maxOutputTokens: 4096 },
-  creative: { temperature: 1, topP: 0.95, maxOutputTokens: 4096 }
-}
-
-export interface IPromptVariable {
-  key: string
-  label: string
-  type: "text" | "paragraph" | "select" | "number"
-  options: string[]
-  defaultValue: string
-  required: boolean
-}
-
+/** JSON 数组字符串 → 字符串数组（仅用于 knowledgeIds 这类仍以字符串承载的 ID 列表） */
 export function parseIdList(raw: string): string[] {
   if (!raw || raw.trim().charAt(0) !== "[") return []
   try {
     const parsed = JSON.parse(raw)
-    if (Array.isArray(parsed)) {
-      return parsed.filter((item): item is string => typeof item === "string")
-    }
+    if (Array.isArray(parsed)) return parsed.filter((item): item is string => typeof item === "string")
   } catch {
     /* ignore */
   }
   return []
 }
 
-export function parseModelParams(raw: string): IModelParams {
-  const defaults = GENERATION_STYLE_PARAMS.balanced
-  if (!raw) return defaults
-  try {
-    const o = JSON.parse(raw) as Partial<IModelParams>
-    return {
-      temperature: typeof o.temperature === "number" ? o.temperature : defaults.temperature,
-      topP: typeof o.topP === "number" ? o.topP : defaults.topP,
-      maxOutputTokens: typeof o.maxOutputTokens === "number" ? o.maxOutputTokens : defaults.maxOutputTokens
+/** 从 configDetail 取提示词块（type=1）；NULL/非对象一律空字典 */
+export function promptOf(detail: IAgentConfigDetail | null | undefined): IAgentPromptDetail {
+  if (!detail || detail.type !== 1 || !detail.prompt || typeof detail.prompt !== "object") return {}
+  return detail.prompt
+}
+
+/** 开场问题数组兜底 */
+export function openingQuestionsOf(detail: IAgentConfigDetail | null | undefined): string[] {
+  const q = promptOf(detail).opening_questions
+  return Array.isArray(q) ? q.map(String) : []
+}
+
+/** 变量数组兜底（深拷贝，避免直接改到 props 里的对象） */
+export function varsOf(detail: IAgentConfigDetail | null | undefined): IPromptVariable[] {
+  const v = promptOf(detail).variables
+  if (!Array.isArray(v)) return []
+  return v.map((item) => ({
+    name: String(item.name || ""),
+    label: String(item.label || ""),
+    type: (item.type as IPromptVariable["type"]) || "text",
+    options: Array.isArray(item.options) ? item.options.map(String) : [],
+    default: String(item.default || ""),
+    required: !!item.required
+  }))
+}
+
+/** 构造 type=1 提示词编排详情，内部键 snake_case */
+export function buildPromptDetail(p: {
+  system: string
+  opening_message: string
+  opening_questions: string[]
+  variables: IPromptVariable[]
+}): IAgentConfigDetail {
+  return {
+    type: 1,
+    prompt: {
+      system: p.system,
+      opening_message: p.opening_message,
+      opening_questions: p.opening_questions.map((q) => q.trim()).filter(Boolean),
+      variables: p.variables
     }
-  } catch {
-    return defaults
   }
-}
-
-export function styleFromParams(params: IModelParams): GenerationStyle {
-  for (const style of ["stable", "balanced", "creative"] as Array<Exclude<GenerationStyle, "custom">>) {
-    const p = GENERATION_STYLE_PARAMS[style]
-    if (Math.abs(params.temperature - p.temperature) < 0.06) return style
-  }
-  return "custom"
-}
-
-export function parseVars(raw: string): IPromptVariable[] {
-  if (!raw) return []
-  try {
-    const arr = JSON.parse(raw)
-    if (Array.isArray(arr)) {
-      return arr.map((v: any) => ({
-        key: String(v.key || ""),
-        label: String(v.label || ""),
-        type: (v.type as any) || "text",
-        options: Array.isArray(v.options) ? v.options.map(String) : [],
-        defaultValue: String(v.defaultValue || ""),
-        required: !!v.required
-      }))
-    }
-  } catch {
-    /* ignore */
-  }
-  return []
-}
-
-export function parseOpeningQuestions(raw: string): string[] {
-  if (!raw) return []
-  try {
-    const arr = JSON.parse(raw)
-    if (Array.isArray(arr)) return arr.map(String)
-  } catch {
-    /* ignore */
-  }
-  return []
 }

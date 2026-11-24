@@ -103,7 +103,7 @@ import type {
   IKnowledgeSourceDoc,
   IKnowledgeSourceItem
 } from "@/types/api/knowledgeSource"
-import ImportOnlineDocDialog from "./ImportOnlineDocDialog.vue"
+import ImportOnlineDocDialog from "./importOnlineDocDialog.vue"
 
 export default defineComponent({
   name: "KsDocumentsPanel",

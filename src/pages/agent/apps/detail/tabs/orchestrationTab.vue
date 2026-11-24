@@ -4,9 +4,10 @@
   Project: beaver-manager
   https://github.com/wsrh8888/beaver-manager
 
-  编排分区：提示词 / 变量 / 对话开场 / 模型与高级 四张分区卡片。
+  编排分区：提示词 / 变量 / 对话开场 三张分区卡片。
   没有「保存」按钮——改动停顿 1 秒后静默落库，失败才提示（与控制台 beaver-open 一致）。
-  数据分两张表写：编排字段落 ai_assistant，开场问题与变量落 agent_app，按需各自提交。
+  编排唯一真相源是 Agent.config_detail（type=1 prompt），内部键 snake_case 原样透传。
+  模型与工具/MCP 绑定不属于 Agent 编排，已从此页移除。
 -->
 
 <template>
@@ -17,8 +18,8 @@
           <el-button size="small">插入变量</el-button>
           <template #dropdown>
             <el-dropdown-menu>
-              <el-dropdown-item v-for="item in variableOptions" :key="item.key" :command="item.key">
-                {{ item.label || item.key }}（{{ varToken(item.key) }}）
+              <el-dropdown-item v-for="item in variableOptions" :key="item.name" :command="item.name">
+                {{ item.label || item.name }}（{{ varToken(item.name) }}）
               </el-dropdown-item>
             </el-dropdown-menu>
           </template>
@@ -53,7 +54,7 @@
           <div v-for="(row, index) in vars" :key="index" class="var-row">
             <div class="var-cell var-cell--name">
               <span class="var-cell__label">变量名</span>
-              <el-input v-model="row.key" placeholder="order_id" maxlength="64" />
+              <el-input v-model="row.name" placeholder="order_id" maxlength="64" />
             </div>
             <div class="var-cell var-cell--label">
               <span class="var-cell__label">展示标签</span>
@@ -63,14 +64,13 @@
               <span class="var-cell__label">类型</span>
               <el-select v-model="row.type">
                 <el-option label="单行文本" value="text" />
-                <el-option label="段落" value="paragraph" />
+                <el-option label="多行文本" value="textarea" />
                 <el-option label="下拉" value="select" />
-                <el-option label="数字" value="number" />
               </el-select>
             </div>
             <div class="var-cell var-cell--default">
               <span class="var-cell__label">默认值</span>
-              <el-input v-model="row.defaultValue" placeholder="可选" maxlength="512" />
+              <el-input v-model="row.default" placeholder="可选" maxlength="512" />
             </div>
             <div class="var-cell var-cell--required">
               <span class="var-cell__label">必填</span>
@@ -111,63 +111,24 @@
       </el-form>
     </FormCard>
 
-    <FormCard title="模型与高级" desc="不指定模型时由平台使用推荐模型；生成风格只影响 temperature。">
-      <el-form label-width="96px" @submit.prevent>
-        <el-form-item label="对话模型">
-          <el-select v-model="form.llmModelId" clearable filterable placeholder="平台推荐" class="model-select">
-            <el-option v-for="m in modelOptions" :key="m.modelId" :label="m.name" :value="m.modelId" />
-          </el-select>
-          <p v-if="effectiveModelName" class="form-hint">
-            {{ form.llmModelId ? `已指定：${effectiveModelName}` : `平台推荐：${effectiveModelName}` }}
-          </p>
-        </el-form-item>
-
-        <el-form-item label="生成风格">
-          <el-radio-group v-model="generationStyle">
-            <el-radio-button value="stable">更稳定</el-radio-button>
-            <el-radio-button value="balanced">默认</el-radio-button>
-            <el-radio-button value="creative">更发散</el-radio-button>
-            <el-radio-button value="custom">自定义</el-radio-button>
-          </el-radio-group>
-          <p class="ds-hint" style="margin-top: var(--ds-space-2)">
-            通过 temperature 控制：更稳定 0.3 / 默认 0.7 / 更发散 1.0。
-          </p>
-        </el-form-item>
-
-        <el-form-item v-if="generationStyle === 'custom'" label="temperature">
-          <el-input-number v-model="temperature" :min="0" :max="2" :step="0.1" :precision="1" controls-position="right" />
-        </el-form-item>
-
-        <el-form-item label="topP">
-          <el-input-number v-model="baseParams.topP" :min="0" :max="1" :step="0.05" :precision="2" controls-position="right" />
-        </el-form-item>
-
-        <el-form-item label="最大输出 token">
-          <el-input-number v-model="baseParams.maxOutputTokens" :min="256" :max="32768" :step="256" controls-position="right" />
-        </el-form-item>
-      </el-form>
-    </FormCard>
   </div>
 </template>
 
 <script lang="ts">
-import type { IAgentInfo, IAgentModelInfo } from "@/types/api/agent"
+import type { IAgentInfo, IAgentConfigDetail } from "@/types/api/agent"
 import { Plus } from "@element-plus/icons-vue"
 import { ElMessage } from "element-plus"
 import {
   createAgentApi,
   getAgentListApi,
-  getAgentModelListApi,
   updateAgentApi
 } from "@/api/agent"
-import FormCard from "../../components/FormCard.vue"
-import IdTagsEditor from "../../components/IdTagsEditor.vue"
+import FormCard from "../../components/formCard.vue"
+import IdTagsEditor from "../../components/idTagsEditor.vue"
 import {
-  GENERATION_STYLE_PARAMS,
-  parseModelParams,
-  parseOpeningQuestions,
-  parseVars,
-  type GenerationStyle,
+  buildPromptDetail,
+  openingQuestionsOf,
+  varsOf,
   type IPromptVariable
 } from "./shared"
 
@@ -183,29 +144,11 @@ export default defineComponent({
   setup(props) {
     const loading = ref(false)
     const saving = ref(false)
-    const modelOptions = ref<IAgentModelInfo[]>([])
     const currentApp = ref<IAgentInfo | null>(null)
 
     const form = reactive({
       systemPrompt: "",
-      openingMessage: "",
-      llmModelId: ""
-    })
-    /** temperature 是唯一由「生成风格」驱动的参数；topP / maxOutputTokens 单独可调，保存时一起写回 */
-    const temperature = ref<number | null>(0.7)
-    const baseParams = reactive({ topP: 0.9, maxOutputTokens: 4096 })
-    const generationStyle = computed<GenerationStyle>({
-      get() {
-        if (temperature.value === null) return "balanced"
-        const matched = (Object.keys(GENERATION_STYLE_PARAMS) as Array<Exclude<GenerationStyle, "custom">>)
-          .find((key) => Math.abs(GENERATION_STYLE_PARAMS[key].temperature - (temperature.value as number)) < 0.001)
-        return matched ?? "custom"
-      },
-      set(value) {
-        temperature.value = value === "custom"
-          ? (temperature.value ?? 0.7)
-          : GENERATION_STYLE_PARAMS[value].temperature
-      }
+      openingMessage: ""
     })
     const openingQuestions = ref<string[]>([])
     const vars = ref<IPromptVariable[]>([])
@@ -215,44 +158,27 @@ export default defineComponent({
     const dirty = ref(false)
     let timer: ReturnType<typeof setTimeout> | undefined
 
-    const effectiveModelName = computed(() => {
-      if (form.llmModelId) {
-        return modelOptions.value.find((m) => m.modelId === form.llmModelId)?.name || form.llmModelId
-      }
-      return modelOptions.value[0]?.name || ""
-    })
-
-    const variableOptions = computed(() => vars.value.filter((item) => item.key.trim()))
+    const variableOptions = computed(() => vars.value.filter((item) => item.name.trim()))
     /** 模板里展示字面量占位符，例如 {{order_id}}；放方法里避免裸花括号被编译器误判 */
     const varToken = (key: string) => `{{${key}}}`
 
     const loadData = async () => {
       loading.value = true
       try {
-        // scene → agent_id 解析在后端 ai_assistant 完成；编排字段唯一真相源就是 Agent。
-        const [modelRes, appRes] = await Promise.all([
-          getAgentModelListApi({ status: 1, page: 1, pageSize: 200 }),
-          getAgentListApi({ scene: props.scene, page: 1, pageSize: 20 })
-        ])
-        if (modelRes.code === 0) modelOptions.value = modelRes.result.list || []
-
+        // scene → agent_id 解析在后端 ai_assistant 完成；编排唯一真相源是 Agent.config_detail。
+        const appRes = await getAgentListApi({ scene: props.scene, page: 1, pageSize: 20 })
         const app = appRes.code === 0 ? (appRes.result.list || [])[0] || null : null
         currentApp.value = app
 
         if (app) {
-          form.systemPrompt = app.systemPrompt || ""
-          form.openingMessage = app.openingMessage || ""
-          form.llmModelId = app.llmModelId || ""
-          const params = parseModelParams(app.modelParams)
-          temperature.value = params.temperature
-          baseParams.topP = params.topP
-          baseParams.maxOutputTokens = params.maxOutputTokens
-          openingQuestions.value = parseOpeningQuestions(app.openingQuestions || "")
-          vars.value = parseVars(app.variables || "")
+          const prompt = (app.configDetail && app.configDetail.prompt) || {}
+          form.systemPrompt = prompt.system || ""
+          form.openingMessage = prompt.opening_message || ""
+          openingQuestions.value = openingQuestionsOf(app.configDetail)
+          vars.value = varsOf(app.configDetail)
         } else {
           form.systemPrompt = ""
           form.openingMessage = ""
-          form.llmModelId = ""
           openingQuestions.value = []
           vars.value = []
         }
@@ -272,39 +198,29 @@ export default defineComponent({
       return fallback
     }
 
-    /** 编排字段唯一落在 Agent：人设 / 模型 / 参数 / 开场白 / 开场问题 / 变量一次性写入 */
+    /** 编排唯一落在 Agent.config_detail：人设 / 开场白 / 开场问题 / 变量一次性写入 */
     const saveAgent = async () => {
-      const modelParams = JSON.stringify({
-        temperature: temperature.value ?? 0.7,
-        topP: baseParams.topP,
-        maxOutputTokens: baseParams.maxOutputTokens
+      const configDetail: IAgentConfigDetail = buildPromptDetail({
+        system: form.systemPrompt,
+        opening_message: form.openingMessage,
+        opening_questions: openingQuestions.value,
+        variables: vars.value
       })
-      const openingQuestionsStr = JSON.stringify(openingQuestions.value.map((q) => q.trim()).filter(Boolean))
-      const variablesStr = JSON.stringify(vars.value)
       const app = currentApp.value
       const res = app
         ? await updateAgentApi({
             agentId: app.agentId,
             name: app.name,
-            systemPrompt: form.systemPrompt,
-            llmModelId: form.llmModelId || undefined,
-            modelParams,
-            openingMessage: form.openingMessage,
-            openingQuestions: openingQuestionsStr,
-            variables: variablesStr,
+            config: 1,
+            configDetail,
             status: app.status,
-            sort: app.sort,
-            version: app.version
+            sort: app.sort
           })
         : await createAgentApi({
             name: props.scene,
             scene: props.scene,
-            systemPrompt: form.systemPrompt,
-            llmModelId: form.llmModelId || undefined,
-            modelParams,
-            openingMessage: form.openingMessage,
-            openingQuestions: openingQuestionsStr,
-            variables: variablesStr,
+            config: 1,
+            configDetail,
             status: 1
           })
       if (res.code !== 0) throw new Error(res.msg || "编排保存失败")
@@ -317,21 +233,12 @@ export default defineComponent({
           description: "",
           ownerUserId: "",
           source: "custom",
-          runtime: "builtin",
-          systemPrompt: form.systemPrompt,
-          llmModelId: form.llmModelId,
-          modelParams,
-          tools: "",
-          mcpServerIds: "",
+          avatar: "",
+          config: 1,
+          configDetail,
           knowledgeIds: "",
-          openingMessage: form.openingMessage,
-          openingQuestions: openingQuestionsStr,
-          variables: variablesStr,
-          workflowConfig: "",
           status: 1,
-          sort: 0,
-          version: 1,
-          createdBy: ""
+          sort: 0
         }
       }
     }
@@ -363,7 +270,7 @@ export default defineComponent({
     }
 
     watch(
-      () => [form.systemPrompt, form.openingMessage, form.llmModelId, temperature.value, baseParams.topP, baseParams.maxOutputTokens],
+      () => [form.systemPrompt, form.openingMessage],
       () => {
         dirty.value = true
         schedule()
@@ -381,11 +288,11 @@ export default defineComponent({
 
     const addVariable = () => {
       vars.value.push({
-        key: "",
+        name: "",
         label: "",
         type: "text",
         options: [],
-        defaultValue: "",
+        default: "",
         required: false
       })
     }
@@ -409,14 +316,9 @@ export default defineComponent({
 
     return {
       loading,
-      modelOptions,
       form,
-      temperature,
-      baseParams,
-      generationStyle,
       openingQuestions,
       vars,
-      effectiveModelName,
       variableOptions,
       varToken,
       addVariable,
@@ -428,16 +330,6 @@ export default defineComponent({
 </script>
 
 <style lang="less" scoped>
-.model-select {
-  width: 420px;
-}
-
-.form-hint {
-  margin: 4px 0 0;
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
-}
-
 .orch-empty {
   margin: 0;
   padding: 12px 0;
@@ -503,10 +395,6 @@ export default defineComponent({
 }
 
 @media (max-width: 767px) {
-  .model-select {
-    width: 100%;
-  }
-
   .var-cell {
     &--name,
     &--label,

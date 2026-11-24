@@ -1,0 +1,58 @@
+{
+  "rootScripts": [
+    "dev",
+    "serve_prod",
+    "serve_test",
+    "build_prod",
+    "build_test",
+    "lint",
+    "prepare",
+    "add-copyright-header"
+  ],
+  "packageScripts": {},
+  "requiredPaths": [
+    "AGENTS.md",
+    "docs/README.md",
+    "docs/architecture.md",
+    "docs/directory.md",
+    "docs/glossary.md",
+    "docs/workflow.md",
+    "docs/knowledge-checks.json",
+    "scripts/check-knowledge.mjs",
+    "src/App.vue",
+    "src/main.ts",
+    "src/router/index.ts",
+    "src/utils/request/index.ts",
+    "src/api/readme.md",
+    "src/api/agent.ts",
+    "src/types/api/agent.ts",
+    "src/pages/agent/apps/detail/tabs/orchestrationTab.vue",
+    "src/pages/agent/apps/knowledgeSource/index.vue",
+    "src/pages/assets/emojiPackages/index.vue",
+    "src/layouts/components/navigationBar/index.vue",
+    "src/layouts/components/sidebar/index.vue"
+  ],
+  "ruleFiles": [
+    "src/api/readme.md"
+  ],
+  "chapters": [
+    "architecture.md",
+    "standards/01-boundaries-and-naming.md",
+    "standards/02-types-and-api.md",
+    "standards/03-vue-and-state.md",
+    "standards/04-auth-and-routing.md",
+    "standards/05-errors-and-resources.md",
+    "how-to/01-add-page.md",
+    "how-to/02-add-api.md",
+    "modules/agent-console.md",
+    "modules/user-compliance.md",
+    "modules/open-platform.md",
+    "modules/platform-ops.md",
+    "workflow.md",
+    "decisions/README.md",
+    "tasks/README.md"
+  ],
+  "namingExceptions": [
+    "src/App.vue"
+  ]
+}

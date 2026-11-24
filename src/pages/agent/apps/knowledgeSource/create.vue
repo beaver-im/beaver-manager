@@ -185,16 +185,16 @@
   </div>
 </template>
 
-<script setup lang="ts">
-import { computed, ref } from "vue"
+<script lang="ts">
+import { computed, defineComponent, ref } from "vue"
 import { useRoute, useRouter } from "vue-router"
 import { ElMessage } from "element-plus"
 import type { ElInput } from "element-plus"
 import { ArrowLeft, FolderAdd } from "@element-plus/icons-vue"
 import { saveKnowledgeSourceApi } from "@/api/knowledgeSource"
 import { DEFAULT_KNOWLEDGE_INDEX_CONFIG, type IKnowledgeIndexConfig } from "@/types/api/knowledgeSource"
-import LibraryTypeIcon from "./LibraryTypeIcon.vue"
-import LinkCheckDialog from "./LinkCheckDialog.vue"
+import LibraryTypeIcon from "./libraryTypeIcon.vue"
+import LinkCheckDialog from "./linkCheckDialog.vue"
 import {
   MAX_PENDING_FILE_BYTES,
   applyPendingDocs,
@@ -205,164 +205,198 @@ import {
   type PendingDocItem
 } from "./pending"
 
-const route = useRoute()
-const router = useRouter()
+export default defineComponent({
+  name: "KnowledgeSourceCreate",
+  components: { LibraryTypeIcon, LinkCheckDialog },
+  setup() {
+    const route = useRoute()
+    const router = useRouter()
 
-const scene = computed(() => String(route.params.scene || ""))
+    const scene = computed(() => String(route.params.scene || ""))
 
-const pending = ref<PendingDocItem[]>([])
-const creating = ref(false)
-const localInputRef = ref<HTMLInputElement>()
-const linkDialogVisible = ref(false)
-const linkDocType = ref<KnowledgeDocType>("doc")
-const indexConfig = ref<IKnowledgeIndexConfig>({ ...DEFAULT_KNOWLEDGE_INDEX_CONFIG })
+    const pending = ref<PendingDocItem[]>([])
+    const creating = ref(false)
+    const localInputRef = ref<HTMLInputElement>()
+    const linkDialogVisible = ref(false)
+    const linkDocType = ref<KnowledgeDocType>("doc")
+    const indexConfig = ref<IKnowledgeIndexConfig>({ ...DEFAULT_KNOWLEDGE_INDEX_CONFIG })
 
-/** 「创建一个空的知识源」：先弹窗输入名称，再落库 */
-const emptyDialogVisible = ref(false)
-const emptyName = ref("")
-const creatingEmpty = ref(false)
-const emptyNameInputRef = ref<InstanceType<typeof ElInput>>()
+    /** 「创建一个空的知识源」：先弹窗输入名称，再落库 */
+    const emptyDialogVisible = ref(false)
+    const emptyName = ref("")
+    const creatingEmpty = ref(false)
+    const emptyNameInputRef = ref<InstanceType<typeof ElInput>>()
 
-function backToList() {
-  if (!scene.value) {
-    void router.push({ path: "/agent/apps" })
-    return
-  }
-  void router.push({
-    path: "/agent/apps/detail",
-    query: { scene: scene.value, tab: "knowledge" }
-  })
-}
-
-function goDetail(knowledgeSourceId: string) {
-  void router.replace({
-    name: "AgentKnowledgeSourceDetail",
-    params: { scene: scene.value, knowledgeSourceId }
-  })
-}
-
-/** 没有名称输入框：用首条数据的标题兜底，用户可在知识源「设置」里改名 */
-function defaultName(): string {
-  const first = pending.value[0]?.title?.trim()
-  if (first) return first.slice(0, 32)
-  return "新建知识源"
-}
-
-async function createSource(name: string): Promise<string> {
-  const res = await saveKnowledgeSourceApi({ scene: scene.value, name })
-  if (res.code !== 0) throw new Error(res.msg || "创建知识源失败")
-  const id = res.result?.knowledgeSourceId
-  if (!id) throw new Error("创建成功但未返回知识源 ID")
-  return id
-}
-
-function openEmptyDialog() {
-  if (creatingEmpty.value) return
-  emptyName.value = ""
-  emptyDialogVisible.value = true
-}
-
-function focusEmptyName() {
-  emptyNameInputRef.value?.focus()
-}
-
-async function confirmEmptyCreate() {
-  const name = emptyName.value.trim()
-  if (!name || creatingEmpty.value || !scene.value) return
-  creatingEmpty.value = true
-  try {
-    const id = await createSource(name)
-    emptyDialogVisible.value = false
-    ElMessage.success("已创建空知识源")
-    goDetail(id)
-  } catch (err) {
-    ElMessage.error(pendingErrorMessage(err, "创建知识源失败"))
-  } finally {
-    creatingEmpty.value = false
-  }
-}
-
-async function createWithDocs() {
-  if (!scene.value || creating.value || !pending.value.length) return
-  creating.value = true
-  try {
-    const id = await createSource(defaultName())
-    const { count, warnings } = await applyPendingDocs({
-      scene: scene.value,
-      knowledgeSourceId: id,
-      pending: pending.value,
-      indexConfig: indexConfig.value
-    })
-    if (warnings.length) {
-      ElMessage.warning(warnings.join("；"))
-    } else {
-      ElMessage.success(count > 0 ? `已添加 ${count} 个文档` : "知识源已创建")
+    function backToList() {
+      if (!scene.value) {
+        void router.push({ path: "/agent/apps" })
+        return
+      }
+      void router.push({
+        path: "/agent/apps/detail",
+        query: { scene: scene.value, tab: "knowledge" }
+      })
     }
-    goDetail(id)
-  } catch (err) {
-    ElMessage.error(pendingErrorMessage(err, "创建知识源失败"))
-  } finally {
-    creating.value = false
-  }
-}
 
-function openLinkDialog(docType: KnowledgeDocType) {
-  linkDocType.value = docType
-  linkDialogVisible.value = true
-}
-
-function onLinkConfirmed(payload: { docUrl: string; docId: string; title: string }) {
-  const docType = linkDocType.value
-  const key = `online_${payload.docId || payload.docUrl}`
-  if (pending.value.some(item => item.key === key)) {
-    ElMessage.info("这条文档已在已选文件里")
-    return
-  }
-  pending.value.push({
-    key,
-    title: payload.title,
-    sourceLabel: docType === "faq" ? "Q&A 文档" : "海狸在线文档",
-    kind: "online",
-    docType,
-    docUrl: payload.docUrl,
-    docId: payload.docId
-  })
-}
-
-function openLocalPick() {
-  localInputRef.value?.click()
-}
-
-function onLocalInputChange(ev: Event) {
-  const input = ev.target as HTMLInputElement
-  const files = input.files
-  if (!files?.length) return
-  for (const raw of Array.from(files)) {
-    const lower = raw.name.toLowerCase()
-    if (!lower.endsWith(".docx") && !lower.endsWith(".xlsx")) {
-      ElMessage.warning(`${raw.name}：仅支持 docx / xlsx`)
-      continue
+    function goDetail(knowledgeSourceId: string) {
+      void router.replace({
+        name: "AgentKnowledgeSourceDetail",
+        params: { scene: scene.value, knowledgeSourceId }
+      })
     }
-    if (raw.size > MAX_PENDING_FILE_BYTES) {
-      ElMessage.warning(`${raw.name}：文件超过 20MB，暂不支持`)
-      continue
-    }
-    const key = `local_${raw.name}_${raw.size}_${raw.lastModified}`
-    if (pending.value.some(item => item.key === key)) continue
-    pending.value.push({
-      key,
-      title: raw.name.replace(/\.(docx|xlsx)$/i, ""),
-      sourceLabel: "本地上传",
-      kind: "local",
-      file: raw
-    })
-  }
-  input.value = ""
-}
 
-function removePending(index: number) {
-  pending.value.splice(index, 1)
-}
+    /** 没有名称输入框：用首条数据的标题兜底，用户可在知识源「设置」里改名 */
+    function defaultName(): string {
+      const first = pending.value[0]?.title?.trim()
+      if (first) return first.slice(0, 32)
+      return "新建知识源"
+    }
+
+    async function createSource(name: string): Promise<string> {
+      const res = await saveKnowledgeSourceApi({ scene: scene.value, name })
+      if (res.code !== 0) throw new Error(res.msg || "创建知识源失败")
+      const id = res.result?.knowledgeSourceId
+      if (!id) throw new Error("创建成功但未返回知识源 ID")
+      return id
+    }
+
+    function openEmptyDialog() {
+      if (creatingEmpty.value) return
+      emptyName.value = ""
+      emptyDialogVisible.value = true
+    }
+
+    function focusEmptyName() {
+      emptyNameInputRef.value?.focus()
+    }
+
+    async function confirmEmptyCreate() {
+      const name = emptyName.value.trim()
+      if (!name || creatingEmpty.value || !scene.value) return
+      creatingEmpty.value = true
+      try {
+        const id = await createSource(name)
+        emptyDialogVisible.value = false
+        ElMessage.success("已创建空知识源")
+        goDetail(id)
+      } catch (err) {
+        ElMessage.error(pendingErrorMessage(err, "创建知识源失败"))
+      } finally {
+        creatingEmpty.value = false
+      }
+    }
+
+    async function createWithDocs() {
+      if (!scene.value || creating.value || !pending.value.length) return
+      creating.value = true
+      try {
+        const id = await createSource(defaultName())
+        const { count, warnings } = await applyPendingDocs({
+          scene: scene.value,
+          knowledgeSourceId: id,
+          pending: pending.value,
+          indexConfig: indexConfig.value
+        })
+        if (warnings.length) {
+          ElMessage.warning(warnings.join("；"))
+        } else {
+          ElMessage.success(count > 0 ? `已添加 ${count} 个文档` : "知识源已创建")
+        }
+        goDetail(id)
+      } catch (err) {
+        ElMessage.error(pendingErrorMessage(err, "创建知识源失败"))
+      } finally {
+        creating.value = false
+      }
+    }
+
+    function openLinkDialog(docType: KnowledgeDocType) {
+      linkDocType.value = docType
+      linkDialogVisible.value = true
+    }
+
+    function onLinkConfirmed(payload: { docUrl: string; docId: string; title: string }) {
+      const docType = linkDocType.value
+      const key = `online_${payload.docId || payload.docUrl}`
+      if (pending.value.some(item => item.key === key)) {
+        ElMessage.info("这条文档已在已选文件里")
+        return
+      }
+      pending.value.push({
+        key,
+        title: payload.title,
+        sourceLabel: docType === "faq" ? "Q&A 文档" : "海狸在线文档",
+        kind: "online",
+        docType,
+        docUrl: payload.docUrl,
+        docId: payload.docId
+      })
+    }
+
+    function openLocalPick() {
+      localInputRef.value?.click()
+    }
+
+    function onLocalInputChange(ev: Event) {
+      const input = ev.target as HTMLInputElement
+      const files = input.files
+      if (!files?.length) return
+      for (const raw of Array.from(files)) {
+        const lower = raw.name.toLowerCase()
+        if (!lower.endsWith(".docx") && !lower.endsWith(".xlsx")) {
+          ElMessage.warning(`${raw.name}：仅支持 docx / xlsx`)
+          continue
+        }
+        if (raw.size > MAX_PENDING_FILE_BYTES) {
+          ElMessage.warning(`${raw.name}：文件超过 20MB，暂不支持`)
+          continue
+        }
+        const key = `local_${raw.name}_${raw.size}_${raw.lastModified}`
+        if (pending.value.some(item => item.key === key)) continue
+        pending.value.push({
+          key,
+          title: raw.name.replace(/\.(docx|xlsx)$/i, ""),
+          sourceLabel: "本地上传",
+          kind: "local",
+          file: raw
+        })
+      }
+      input.value = ""
+    }
+
+    function removePending(index: number) {
+      pending.value.splice(index, 1)
+    }
+
+    return {
+      ArrowLeft,
+      FolderAdd,
+      scene,
+      pending,
+      creating,
+      localInputRef,
+      linkDialogVisible,
+      linkDocType,
+      indexConfig,
+      emptyDialogVisible,
+      emptyName,
+      creatingEmpty,
+      emptyNameInputRef,
+      backToList,
+      openEmptyDialog,
+      focusEmptyName,
+      confirmEmptyCreate,
+      createWithDocs,
+      openLinkDialog,
+      onLinkConfirmed,
+      openLocalPick,
+      onLocalInputChange,
+      removePending,
+      pendingIconType,
+      pendingTypeLabel
+    }
+  }
+})
 </script>
 
 <style scoped lang="less">

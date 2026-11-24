@@ -32,11 +32,7 @@
           </span>
           <div class="agent-card__heading">
             <h3 class="agent-card__name" :title="card.name">{{ card.name }}</h3>
-            <p class="agent-card__meta">
-              {{ card.scene }}
-              <template v-if="card.modelName"> · {{ card.modelName }}</template>
-              <template v-if="card.generationStyle"> · {{ card.generationStyle }}</template>
-            </p>
+            <p class="agent-card__meta">{{ card.scene }}</p>
           </div>
           <span class="agent-card__badge" :class="card.status === 1 ? 'is-on' : 'is-off'">
             {{ card.status === 1 ? "启用中" : "已停用" }}
@@ -46,9 +42,7 @@
         <p class="agent-card__desc">{{ card.systemPrompt || "还没有配置系统提示词" }}</p>
 
         <footer class="agent-card__stats">
-          <span class="agent-card__stat"><b>{{ card.toolCount }}</b> 工具</span>
           <span class="agent-card__stat"><b>{{ card.knowledgeCount }}</b> 知识库</span>
-          <span class="agent-card__stat"><b>{{ card.mcpCount }}</b> MCP</span>
           <span class="agent-card__stat"><b>{{ card.varCount }}</b> 变量</span>
           <el-icon class="agent-card__go"><Right /></el-icon>
         </footer>
@@ -58,23 +52,19 @@
 </template>
 
 <script lang="ts">
-import type { IAgentInfo, IAgentModelInfo } from "@/types/api/agent"
+import type { IAgentInfo } from "@/types/api/agent"
 import { Right } from "@element-plus/icons-vue"
 import { useRouter } from "vue-router"
-import { getAgentListApi, getAgentModelListApi, getAiAssistantApi } from "@/api/agent"
+import { getAgentListApi, getAiAssistantApi } from "@/api/agent"
 import { iconLetter, iconTint } from "./detail/tabs/cardVisual"
-import { parseIdList, parseModelParams, parseVars, styleFromParams } from "./detail/tabs/shared"
+import { parseIdList, promptOf, varsOf } from "./detail/tabs/shared"
 
 interface ISceneCard {
   scene: string
   name: string
   systemPrompt: string
   status: number
-  modelName: string
-  generationStyle: string
   knowledgeCount: number
-  toolCount: number
-  mcpCount: number
   varCount: number
 }
 
@@ -85,36 +75,21 @@ const SCENE_LABELS: Record<string, string> = {
   moment: "朋友圈",
   workbench: "工作台"
 }
-const STYLE_LABELS: Record<string, string> = {
-  stable: "更稳定",
-  balanced: "默认",
-  creative: "更发散",
-  custom: "自定义"
-}
-
 export default defineComponent({
   name: "AgentsListPage",
   components: { Right },
   setup() {
     const router = useRouter()
     const loading = ref(false)
-    const modelOptions = ref<IAgentModelInfo[]>([])
     const cards = ref<ISceneCard[]>([])
-
-    const modelNameOf = (modelId: string) => {
-      if (!modelId) return ""
-      return modelOptions.value.find((m) => m.modelId === modelId)?.name || modelId
-    }
 
     const loadAll = async () => {
       loading.value = true
       try {
-        const [modelRes, assistantRes, appRes] = await Promise.all([
-          getAgentModelListApi({ status: 1, page: 1, pageSize: 200 }),
+        const [assistantRes, appRes] = await Promise.all([
           Promise.all(SCENES.map((s) => getAiAssistantApi({ scene: s }))),
           getAgentListApi({ page: 1, pageSize: 100 })
         ])
-        if (modelRes.code === 0) modelOptions.value = modelRes.result.list || []
 
         const appMap = new Map<string, IAgentInfo>()
         if (appRes.code === 0) {
@@ -125,18 +100,13 @@ export default defineComponent({
         cards.value = SCENES.map((scene) => {
           const assistant = assistantRes.find((r) => r.code === 0 && r.result.assistant?.scene === scene)?.result.assistant
           const app = assistant?.agentId ? appMap.get(assistant.agentId) : undefined
-          const style = styleFromParams(parseModelParams(app?.modelParams || ""))
           return {
             scene,
             name: app?.name || assistant?.name || SCENE_LABELS[scene],
-            systemPrompt: app?.systemPrompt || "",
+            systemPrompt: promptOf(app?.configDetail).system || "",
             status: app?.status ?? assistant?.status ?? 1,
-            modelName: modelNameOf(app?.llmModelId || ""),
-            generationStyle: STYLE_LABELS[style] || "",
             knowledgeCount: parseIdList(app?.knowledgeIds || "").length,
-            toolCount: parseIdList(app?.tools || "").length,
-            mcpCount: parseIdList(app?.mcpServerIds || "").length,
-            varCount: parseVars(app?.variables || "").length
+            varCount: varsOf(app?.configDetail).length
           }
         })
       } finally {

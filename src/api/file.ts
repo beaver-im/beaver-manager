@@ -211,7 +211,7 @@ export const uploadFileApi = async (file: File): Promise<IFileUploadResult> => {
 /**
  * @description: 通用文件上传函数（通过后端API）
  */
-export const uploadFileApiWithTarget = async (file: File, target: 'local' | 'qiniu' = 'local'): Promise<IFileUploadResult> => {
+const uploadViaBackend = async (file: File, target: 'local' | 'qiniu' = 'local'): Promise<IFileUploadResult> => {
   // 根据目标选择URL
   const baseEndpoint = target === 'qiniu' ? 'upload_qiniu' : 'upload_local'
   const uploadUrl = `${config.baseAPI}/beaver-admin/api/backend/file/v1/${baseEndpoint}`
@@ -249,12 +249,12 @@ export const uploadFileApiWithTarget = async (file: File, target: 'local' | 'qin
 /**
  * @description: 上传文件到本地（通过后端API）
  */
-export const uploadToLocalApi = (file: File) => uploadFileApiWithTarget(file, 'local')
+export const uploadToLocalApi = (file: File) => uploadViaBackend(file, 'local')
 
 /**
  * @description: 上传文件到七牛云（通过后端API）
  */
-export const uploadQiniuApi = (file: File) => uploadFileApiWithTarget(file, 'qiniu')
+export const uploadQiniuApi = (file: File) => uploadViaBackend(file, 'qiniu')
 
 // =================== 文件上传工具函数（直接上传） ===================
 
@@ -266,7 +266,7 @@ export const uploadQiniuApi = (file: File) => uploadFileApiWithTarget(file, 'qin
  * @param argument 自定义参数（仅七牛云使用）
  * @returns Promise<UploadResult>
  */
-export const uploadFileWithTarget = async (
+export const uploadFileWithTargetApi = async (
   file: File,
   path: string,
   target: 'local' | 'qiniu' = 'qiniu',

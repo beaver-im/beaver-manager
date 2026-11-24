@@ -45,7 +45,7 @@
 import { ElMessage } from "element-plus"
 import { getAgentListApi, updateAgentApi, createAgentApi } from "@/api/agent"
 import type { IAgentInfo } from "@/types/api/agent"
-import FormCard from "../../components/FormCard.vue"
+import FormCard from "../../components/formCard.vue"
 
 const SCENE_LABELS: Record<string, string> = {
   assistant: "AI 助手",
@@ -95,8 +95,7 @@ export default defineComponent({
           ? await updateAgentApi({
               agentId: currentAgent.agentId,
               name,
-              status,
-              version: currentAgent.version
+              status
             })
           : await createAgentApi({ name, scene: props.scene, status })
         if (res.code !== 0) throw new Error(res.msg || "保存失败")

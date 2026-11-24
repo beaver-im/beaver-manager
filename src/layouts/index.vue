@@ -38,8 +38,8 @@
 </template>
 
 <script lang="ts">
-import NavigationBar from "@/layouts/components/NavigationBar/index.vue"
-import Sidebar from "@/layouts/components/Sidebar/index.vue"
+import NavigationBar from "@/layouts/components/navigationBar/index.vue"
+import Sidebar from "@/layouts/components/sidebar/index.vue"
 
 export default defineComponent({
   components: {

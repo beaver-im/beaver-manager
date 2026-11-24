@@ -154,13 +154,14 @@
   </div>
 </template>
 
-<script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue"
+<script lang="ts">
+import { computed, defineComponent, onMounted, ref, toRefs, watch } from "vue"
+import type { PropType } from "vue"
 import { ElMessage } from "element-plus"
 import type { IKnowledgeIndexConfig } from "@/types/api/knowledgeSource"
-import KsSegmentSettingsPanel from "./KsSegmentSettingsPanel.vue"
-import LinkCheckDialog from "./LinkCheckDialog.vue"
-import LibraryTypeIcon from "./LibraryTypeIcon.vue"
+import KsSegmentSettingsPanel from "./ksSegmentSettingsPanel.vue"
+import LinkCheckDialog from "./linkCheckDialog.vue"
+import LibraryTypeIcon from "./libraryTypeIcon.vue"
 import {
   MAX_PENDING_FILE_BYTES,
   applyPendingDocs,
@@ -170,148 +171,173 @@ import {
   type PendingDocItem
 } from "./pending"
 
-const props = defineProps<{
-  scene: string
-  knowledgeSourceId: string
-  indexConfigSeed: IKnowledgeIndexConfig
-}>()
-
-const emit = defineEmits<{
-  (e: "cancel"): void
-  (e: "done"): void
-}>()
-
-const stepLabels = ["选择数据源", "文本分段与清洗", "处理并完成"]
-const step = ref(0)
-const pending = ref<PendingDocItem[]>([])
-const indexConfig = ref<IKnowledgeIndexConfig>({ ...props.indexConfigSeed })
-const submitting = ref(false)
-const addedCount = ref(0)
-
-const localInputRef = ref<HTMLInputElement>()
-const linkDialogVisible = ref(false)
-const linkDocType = ref<KnowledgeDocType>("doc")
-
-watch(
-  () => props.indexConfigSeed,
-  seed => {
-    indexConfig.value = { ...seed }
+export default defineComponent({
+  name: "KsAddFileWizard",
+  components: { KsSegmentSettingsPanel, LinkCheckDialog, LibraryTypeIcon },
+  props: {
+    scene: { type: String, required: true },
+    knowledgeSourceId: { type: String, required: true },
+    indexConfigSeed: { type: Object as PropType<IKnowledgeIndexConfig>, required: true }
   },
-  { deep: true }
-)
+  emits: ["cancel", "done"],
+  setup(props, { emit }) {
+    const stepLabels = ["选择数据源", "文本分段与清洗", "处理并完成"]
+    const step = ref(0)
+    const pending = ref<PendingDocItem[]>([])
+    const indexConfig = ref<IKnowledgeIndexConfig>({ ...props.indexConfigSeed })
+    const submitting = ref(false)
+    const addedCount = ref(0)
 
-function resetAll() {
-  step.value = 0
-  pending.value = []
-  indexConfig.value = { ...props.indexConfigSeed }
-  addedCount.value = 0
-  linkDialogVisible.value = false
-  linkDocType.value = "doc"
-}
+    const localInputRef = ref<HTMLInputElement>()
+    const linkDialogVisible = ref(false)
+    const linkDocType = ref<KnowledgeDocType>("doc")
 
-function close() {
-  resetAll()
-  emit("cancel")
-}
+    watch(
+      () => props.indexConfigSeed,
+      seed => {
+        indexConfig.value = { ...seed }
+      },
+      { deep: true }
+    )
 
-function openLinkDialog(docType: KnowledgeDocType) {
-  linkDocType.value = docType
-  linkDialogVisible.value = true
-}
-
-function onLinkConfirmed(payload: { docUrl: string; docId: string; title: string }) {
-  const docType = linkDocType.value
-  const key = `online_${payload.docId || payload.docUrl}`
-  if (pending.value.some(p => p.key === key)) {
-    ElMessage.info("这条文档已在待导入列表")
-    return
-  }
-  pending.value.push({
-    key,
-    title: payload.title,
-    sourceLabel: docType === "faq" ? "Q&A 文档" : "海狸在线文档",
-    kind: "online",
-    docType,
-    docUrl: payload.docUrl,
-    docId: payload.docId
-  })
-}
-
-function openLocalPick() {
-  localInputRef.value?.click()
-}
-
-function onLocalInputChange(ev: Event) {
-  const input = ev.target as HTMLInputElement
-  const files = input.files
-  if (!files?.length) return
-  for (const raw of Array.from(files)) {
-    const lower = raw.name.toLowerCase()
-    if (!lower.endsWith(".docx") && !lower.endsWith(".xlsx")) {
-      ElMessage.warning(`${raw.name}：仅支持 docx / xlsx`)
-      continue
+    function resetAll() {
+      step.value = 0
+      pending.value = []
+      indexConfig.value = { ...props.indexConfigSeed }
+      addedCount.value = 0
+      linkDialogVisible.value = false
+      linkDocType.value = "doc"
     }
-    if (raw.size > MAX_PENDING_FILE_BYTES) {
-      ElMessage.warning(`${raw.name}：文件超过 20MB，暂不支持`)
-      continue
+
+    function close() {
+      resetAll()
+      emit("cancel")
     }
-    const key = `local_${raw.name}_${raw.size}_${raw.lastModified}`
-    if (pending.value.some(p => p.key === key)) continue
-    pending.value.push({
-      key,
-      title: raw.name.replace(/\.(docx|xlsx)$/i, ""),
-      sourceLabel: "本地上传",
-      kind: "local",
-      file: raw
+
+    function openLinkDialog(docType: KnowledgeDocType) {
+      linkDocType.value = docType
+      linkDialogVisible.value = true
+    }
+
+    function onLinkConfirmed(payload: { docUrl: string; docId: string; title: string }) {
+      const docType = linkDocType.value
+      const key = `online_${payload.docId || payload.docUrl}`
+      if (pending.value.some(p => p.key === key)) {
+        ElMessage.info("这条文档已在待导入列表")
+        return
+      }
+      pending.value.push({
+        key,
+        title: payload.title,
+        sourceLabel: docType === "faq" ? "Q&A 文档" : "海狸在线文档",
+        kind: "online",
+        docType,
+        docUrl: payload.docUrl,
+        docId: payload.docId
+      })
+    }
+
+    function openLocalPick() {
+      localInputRef.value?.click()
+    }
+
+    function onLocalInputChange(ev: Event) {
+      const input = ev.target as HTMLInputElement
+      const files = input.files
+      if (!files?.length) return
+      for (const raw of Array.from(files)) {
+        const lower = raw.name.toLowerCase()
+        if (!lower.endsWith(".docx") && !lower.endsWith(".xlsx")) {
+          ElMessage.warning(`${raw.name}：仅支持 docx / xlsx`)
+          continue
+        }
+        if (raw.size > MAX_PENDING_FILE_BYTES) {
+          ElMessage.warning(`${raw.name}：文件超过 20MB，暂不支持`)
+          continue
+        }
+        const key = `local_${raw.name}_${raw.size}_${raw.lastModified}`
+        if (pending.value.some(p => p.key === key)) continue
+        pending.value.push({
+          key,
+          title: raw.name.replace(/\.(docx|xlsx)$/i, ""),
+          sourceLabel: "本地上传",
+          kind: "local",
+          file: raw
+        })
+      }
+      input.value = ""
+    }
+
+    function removePending(index: number) {
+      pending.value.splice(index, 1)
+    }
+
+    const preprocessDocs = computed(() =>
+      pending.value.map(p => ({
+        key: p.key,
+        title: p.title,
+        iconType: pendingIconType(p)
+      }))
+    )
+
+    function onIndexConfigUpdate(value: IKnowledgeIndexConfig) {
+      indexConfig.value = value
+    }
+
+    async function submit() {
+      if (!pending.value.length) return
+      submitting.value = true
+      try {
+        const { count, warnings } = await applyPendingDocs({
+          scene: props.scene,
+          knowledgeSourceId: props.knowledgeSourceId,
+          pending: pending.value,
+          indexConfig: indexConfig.value
+        })
+
+        addedCount.value = count
+        step.value = 2
+        emit("done")
+        if (warnings.length) {
+          ElMessage.warning(warnings.join("；"))
+        } else if (count > 0) {
+          ElMessage.success(`已添加 ${count} 个文档`)
+        }
+      } finally {
+        submitting.value = false
+      }
+    }
+
+    onMounted(() => {
+      indexConfig.value = {
+        ...props.indexConfigSeed,
+        retrievalMode: props.indexConfigSeed.retrievalMode || "auto"
+      }
     })
-  }
-  input.value = ""
-}
 
-function removePending(index: number) {
-  pending.value.splice(index, 1)
-}
-
-const preprocessDocs = computed(() =>
-  pending.value.map(p => ({
-    key: p.key,
-    title: p.title,
-    iconType: pendingIconType(p)
-  }))
-)
-
-function onIndexConfigUpdate(value: IKnowledgeIndexConfig) {
-  indexConfig.value = value
-}
-
-async function submit() {
-  if (!pending.value.length) return
-  submitting.value = true
-  try {
-    const { count, warnings } = await applyPendingDocs({
-      scene: props.scene,
-      knowledgeSourceId: props.knowledgeSourceId,
-      pending: pending.value,
-      indexConfig: indexConfig.value
-    })
-
-    addedCount.value = count
-    step.value = 2
-    emit("done")
-    if (warnings.length) {
-      ElMessage.warning(warnings.join("；"))
-    } else if (count > 0) {
-      ElMessage.success(`已添加 ${count} 个文档`)
+    return {
+      ...toRefs(props),
+      stepLabels,
+      step,
+      pending,
+      indexConfig,
+      submitting,
+      addedCount,
+      localInputRef,
+      linkDialogVisible,
+      linkDocType,
+      preprocessDocs,
+      onLocalInputChange,
+      close,
+      openLinkDialog,
+      onLinkConfirmed,
+      openLocalPick,
+      removePending,
+      onIndexConfigUpdate,
+      submit,
+      pendingIconType,
+      pendingTypeLabel
     }
-  } finally {
-    submitting.value = false
-  }
-}
-
-onMounted(() => {
-  indexConfig.value = {
-    ...props.indexConfigSeed,
-    retrievalMode: props.indexConfigSeed.retrievalMode || "auto"
   }
 })
 </script>

@@ -38,11 +38,11 @@
 import { ArrowLeft } from "@element-plus/icons-vue"
 import { useRoute, useRouter } from "vue-router"
 import { getAiAssistantApi } from "@/api/agent"
-import TabNav from "../components/TabNav.vue"
-import OrchestrationTab from "./tabs/OrchestrationTab.vue"
-import KnowledgeTab from "./tabs/KnowledgeTab.vue"
-import SettingsTab from "./tabs/SettingsTab.vue"
-import ToolsTab from "./tabs/ToolsTab.vue"
+import TabNav from "../components/tabNav.vue"
+import OrchestrationTab from "./tabs/orchestrationTab.vue"
+import KnowledgeTab from "./tabs/knowledgeTab.vue"
+import SettingsTab from "./tabs/settingsTab.vue"
+import ToolsTab from "./tabs/toolsTab.vue"
 
 const SCENE_LABELS: Record<string, string> = {
   assistant: "AI 助手",

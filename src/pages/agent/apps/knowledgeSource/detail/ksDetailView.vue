@@ -77,9 +77,9 @@
 import type { PropType } from "vue"
 import { ref, defineComponent, toRefs } from "vue"
 import type { IKnowledgeSourceItem } from "@/types/api/knowledgeSource"
-import KsDocumentsPanel from "./KsDocumentsPanel.vue"
-import KsRetrievePanel from "./KsRetrievePanel.vue"
-import KsSettingsPanel from "./KsSettingsPanel.vue"
+import KsDocumentsPanel from "./ksDocumentsPanel.vue"
+import KsRetrievePanel from "./ksRetrievePanel.vue"
+import KsSettingsPanel from "./ksSettingsPanel.vue"
 
 type TabKey = "documents" | "retrieve" | "settings"
 

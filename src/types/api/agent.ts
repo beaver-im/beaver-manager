@@ -34,13 +34,8 @@ export interface IGetAiAssistantReq {
 
 export interface ISaveAiAssistantReq {
   scene: string
+  agentId?: string
   name?: string
-  systemPrompt?: string
-  llmModelId?: string
-  modelParams?: string
-  tools?: string
-  mcpServerIds?: string
-  openingMessage?: string
   status?: number
 }
 
@@ -153,42 +148,49 @@ export interface IDeleteAgentCredentialReq {
   credentialId: string
 }
 
+// 编排详情，与 AI 侧 config_detail 同构：type=1 提示词（prompt）/ 2 工作流（workflow）。
+// 内部键 snake_case，原样透传，不做字段级映射。
+export interface IPromptVariable {
+  name: string
+  label: string
+  type: "text" | "textarea" | "select"
+  options: string[]
+  default: string
+  required: boolean
+}
+
+export interface IAgentPromptDetail {
+  system?: string
+  opening_message?: string
+  opening_questions?: string[]
+  variables?: IPromptVariable[]
+}
+
+export interface IAgentConfigDetail {
+  type: number // 1 提示词 2 工作流
+  prompt?: IAgentPromptDetail
+  workflow?: Record<string, unknown>
+}
+
 // 渠道无关的 AI 编排定义（agents 表）。scene 归属在 IAiAssistantInfo，不在 Agent 上。
 export interface IAgentInfo {
   agentId: string
   name: string
   description: string
   ownerUserId: string
-  source: string       // official | custom
-  runtime: string      // builtin | workflow
-  systemPrompt: string
-  llmModelId: string
-  modelParams: string
-  tools: string
-  mcpServerIds: string
-  knowledgeIds: string // 来自 agent_knowledge_bindings
-  openingMessage: string
-  openingQuestions: string
-  // 专家中心卡面字段（对齐 WorkBuddy plugin.json v2.0）
-  categoryId: string
-  profession: string      // JSON {zh,en}
+  source: string            // official | custom
   avatar: string
-  tags: string            // JSON [{zh,en}]
-  nameI18n: string        // JSON {zh,en}
-  descriptionI18n: string // JSON {zh,en}
-  expertType: string
-  variables: string
-  workflowConfig: string
+  config: number            // 1 提示词 2 工作流
+  configDetail: IAgentConfigDetail | null
+  knowledgeIds: string      // 来自 AI 侧 KnowledgeSource.agent_id 归属
   status: number
   sort: number
-  version: number
-  createdBy: string
 }
 
 export interface IGetAgentListReq {
   scene?: string   // 传入时经 ai_assistant 解析出 agent_id 单查
   source?: string
-  runtime?: string
+  config?: number  // 1 提示词 2 工作流；0=全部
   status?: number
   page: number
   pageSize: number
@@ -214,24 +216,10 @@ export interface ICreateAgentReq {
   scene?: string       // 传入时创建后绑定 scene↔agent_id
   description?: string
   source?: string
-  runtime?: string
-  systemPrompt?: string
-  llmModelId?: string
-  modelParams?: string
-  tools?: string
-  mcpServerIds?: string
-  knowledgeIds?: string
-  openingMessage?: string
-  openingQuestions?: string
-  categoryId?: string
-  profession?: string
   avatar?: string
-  tags?: string
-  nameI18n?: string
-  descriptionI18n?: string
-  expertType?: string
-  variables?: string
-  workflowConfig?: string
+  config?: number
+  configDetail?: IAgentConfigDetail
+  knowledgeIds?: string
   status?: number
   sort?: number
 }
@@ -242,12 +230,40 @@ export interface ICreateAgentRes {
 
 export interface IUpdateAgentReq extends ICreateAgentReq {
   agentId: string
-  version?: number
 }
 
 export interface IDeleteAgentReq {
   agentId: string
 }
+
+// —— 专家货架（走 backend expert_*，底层 AI console *_expert）——
+// 专家与场景智能体共用 IAgentInfo 结构（AI 侧都是 Agent 表），此别名仅表达语义。
+export type IExpertInfo = IAgentInfo
+export interface IGetExpertListReq {
+  source?: string
+  status?: number
+  page: number
+  pageSize: number
+}
+export interface IGetExpertListRes {
+  total: number
+  list: IExpertInfo[]
+}
+export interface IGetExpertReq { agentId: string }
+export interface IGetExpertRes { expert: IExpertInfo }
+export interface ICreateExpertReq {
+  name: string
+  description?: string
+  avatar?: string
+  config?: number
+  configDetail?: IAgentConfigDetail
+  knowledgeIds?: string
+  status?: number
+  sort?: number
+}
+export interface ICreateExpertRes { agentId: string }
+export interface IUpdateExpertReq extends ICreateExpertReq { agentId: string }
+export interface IDeleteExpertReq { agentId: string }
 
 export interface IAgentToolInfo {
   toolId: string

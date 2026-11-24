@@ -61,12 +61,12 @@ const props = defineProps<Props>()
   .hand-down-left {
     bottom: 3px;
     left: -35px;
-    @include backgroundImage("../images/hand-down-left.png");
+    @include backgroundImage("../images/handDownLeft.png");
   }
   .hand-down-right {
     bottom: 3px;
     right: -40px;
-    @include backgroundImage("../images/hand-down-right.png");
+    @include backgroundImage("../images/handDownRight.png");
   }
   .hand-up-left,
   .hand-up-right {
@@ -80,12 +80,12 @@ const props = defineProps<Props>()
   .hand-up-left {
     bottom: 11px;
     left: -5px;
-    @include backgroundImage("../images/hand-up-left.png");
+    @include backgroundImage("../images/handUpLeft.png");
   }
   .hand-up-right {
     bottom: 11px;
     right: 5px;
-    @include backgroundImage("../images/hand-up-right.png");
+    @include backgroundImage("../images/handUpRight.png");
   }
   .close-eyes {
     z-index: 1;
@@ -93,7 +93,7 @@ const props = defineProps<Props>()
     height: 100%;
     opacity: 0;
     transition: opacity 0.1s linear 0.1s;
-    @include backgroundImage("../images/close-eyes.png");
+    @include backgroundImage("../images/closeEyes.png");
   }
 }
 
