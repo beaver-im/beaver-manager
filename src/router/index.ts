@@ -185,12 +185,12 @@ const router = createRouter({
         },
         {
           path: "data",
-          redirect: "/data/client-log",
+          redirect: "/data/server-log",
           children: [
             {
-              path: "client-log",
+              path: "server-log",
               name: "日志",
-              component: () => import("@/pages/data/clientLog/index.vue")
+              component: () => import("@/pages/data/serverLog/index.vue")
             }
           ]
         },

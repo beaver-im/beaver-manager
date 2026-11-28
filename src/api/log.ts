@@ -19,32 +19,15 @@
  * beaver-manager-header-v1
  */
 
-// ========================= 日志管理接口类型 =========================
-export interface ILogEntry {
-  id: number
-  timestamp: number
-  data: Record<string, unknown> | string
-}
+import type { IQueryLogsReq, IQueryLogsRes } from "@/types/api/log"
+import config from "@/config/env"
+import { ajax } from "@/utils/request"
 
-export interface IQueryLogsReq {
-  bucketId: string
-  level?: string
-  startTime: number
-  endTime: number
-  keyword?: string
-  userFilter?: string
-  page?: number
-  pageSize?: number
-}
-
-export interface IQueryLogsRes {
-  total: number
-  logs: ILogEntry[]
-}
-
-export enum LogLevel {
-  DEBUG = "debug",
-  INFO = "info",
-  WARN = "warn",
-  ERROR = "error"
+/** 查日志：单索引 beaver-logs，source 可选过滤 server / client */
+export function queryLogsApi(params: IQueryLogsReq) {
+  return ajax<IQueryLogsRes>({
+    method: "GET",
+    url: `${config.baseAPI}/beaver-admin/api/backend/log/v1/query_logs`,
+    params
+  })
 }

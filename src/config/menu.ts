@@ -110,7 +110,7 @@ export const menuConfig: MenuItem[] = [
     title: "数据",
     icon: TrendCharts,
     children: [
-      { path: "/data/client-log", title: "日志", icon: Document }
+      { path: "/data/server-log", title: "服务端日志", icon: Document }
     ]
   },
   {

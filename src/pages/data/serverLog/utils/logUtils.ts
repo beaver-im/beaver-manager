@@ -19,7 +19,7 @@
  * beaver-manager-header-v1
  */
 
-import type { ILogEntry } from "@/types/api/track"
+import type { ILogEntry } from "@/types/api/log"
 
 export const logTimePresets = [
   { label: "最近15分钟", value: "15m", minutes: 15 },
@@ -39,29 +39,28 @@ export interface LogHistogramBar {
 
 export interface LogQueryFilters {
   level: string
+  source: string
   keyword: string
-  userFilter: string
 }
 
-export function normalizeLogData(data: ILogEntry["data"]): Record<string, unknown> {
-  if (!data) {
-    return {}
-  }
-  if (typeof data === "string") {
-    try {
-      const parsed = JSON.parse(data)
-      return typeof parsed === "object" && parsed !== null ? parsed as Record<string, unknown> : { raw: data }
-    } catch {
-      return { raw: data }
-    }
-  }
-  return data
-}
-
+/** 服务端返回毫秒时间戳；缺失时回退用采集时间 createdAt。 */
 export function normalizeLogEntry(log: ILogEntry): ILogEntry {
+  const ts = Number(log.timestamp) || Date.parse(log.createdAt) || 0
   return {
-    ...log,
-    data: normalizeLogData(log.data)
+    level: String(log.level || ""),
+    message: String(log.message || ""),
+    source: String(log.source || ""),
+    module: String(log.module || ""),
+    scene: String(log.scene || ""),
+    caller: String(log.caller || ""),
+    traceId: String(log.traceId || ""),
+    userId: String(log.userId || ""),
+    deviceId: String(log.deviceId || ""),
+    platform: String(log.platform || ""),
+    projectName: String(log.projectName || ""),
+    version: String(log.version || ""),
+    timestamp: ts,
+    createdAt: log.createdAt || ""
   }
 }
 
@@ -78,8 +77,9 @@ export function getLogTimeRange(preset: string, customRange: string[]) {
   return { startTime: endTime - minutes * 60 * 1000, endTime }
 }
 
+/** 只认 level: / source: 前缀，其余部分整体作为关键词。 */
 export function parseLogQuery(query: string): LogQueryFilters {
-  const result: LogQueryFilters = { level: "", keyword: "", userFilter: "" }
+  const result: LogQueryFilters = { level: "", source: "", keyword: "" }
   const trimmed = query.trim()
   if (!trimmed || trimmed === "*") {
     return result
@@ -95,8 +95,8 @@ export function parseLogQuery(query: string): LogQueryFilters {
     const value = match[2].trim()
     if (key === "level") {
       result.level = value
-    } else if (key === "userid" || key === "user_id") {
-      result.userFilter = value
+    } else if (key === "source") {
+      result.source = value
     } else {
       keywords.push(part)
     }
@@ -142,28 +142,36 @@ export function formatTsFull(ts: number) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${pad(d.getMilliseconds(), 3)}`
 }
 
-export function getLogData(log: ILogEntry) {
-  return normalizeLogData(log.data)
-}
-
 export function getLogLevel(log: ILogEntry) {
-  return String(getLogData(log).level ?? "")
-}
-
-export function getLogUserId(log: ILogEntry) {
-  return String(getLogData(log).userId ?? "")
-}
-
-export function getLogModule(log: ILogEntry) {
-  return String(getLogData(log).module ?? "")
+  return log.level || ""
 }
 
 export function getLogMessage(log: ILogEntry) {
-  return String(getLogData(log).message ?? "")
+  return log.message || ""
 }
 
-export function formatLogJson(log: ILogEntry) {
-  return JSON.stringify(getLogData(log), null, 2)
+/** 已知来源的展示文案；source 由上报方自报，未知值原样透出，便于新增端不用改前端。 */
+const SOURCE_LABELS: Record<string, string> = {
+  server: "服务端",
+  main: "桌面主进程",
+  render: "桌面渲染",
+  flutter: "移动端"
+}
+
+export function getSourceLabel(source: string) {
+  if (!source) return "-"
+  return SOURCE_LABELS[source] || source
+}
+
+/** 来源徽标配色：服务端与客户端视觉上区分开。 */
+export function getSourceTagType(source: string) {
+  if (source === "server") return "info"
+  return "success"
+}
+
+/** 原始视图：message 本身通常就是一行结构化日志，直接展示。 */
+export function formatLogRaw(log: ILogEntry) {
+  return log.message || JSON.stringify(log, null, 2)
 }
 
 export function getLevelType(level: string) {

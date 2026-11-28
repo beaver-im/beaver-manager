@@ -55,9 +55,9 @@
     <div v-loading="loading" class="log-list-panel__content">
       <template v-if="viewMode === 'raw'">
         <div v-if="!logs.length" class="log-list-panel__empty">暂无日志</div>
-        <div v-for="log in logs" :key="log.id" class="log-list-panel__entry">
+        <div v-for="(log, index) in logs" :key="index" class="log-list-panel__entry">
           <div class="log-list-panel__entry-time">{{ formatTsFull(log.timestamp) }}</div>
-          <pre class="log-list-panel__entry-json" :class="{ 'is-wrap': wrapLine }">{{ formatLogJson(log) }}</pre>
+          <pre class="log-list-panel__entry-json" :class="{ 'is-wrap': wrapLine }">{{ formatLogRaw(log) }}</pre>
         </div>
       </template>
 
@@ -67,16 +67,23 @@
             <el-tag :type="getLevelType(getLogLevel(row))" size="small">{{ getLogLevel(row) || "-" }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="模块" width="120" show-overflow-tooltip>
-          <template #default="{ row }">{{ getLogModule(row) || "-" }}</template>
+        <el-table-column label="来源" width="104">
+          <template #default="{ row }">
+            <el-tag :type="getSourceTagType(row.source)" size="small" effect="plain">
+              {{ getSourceLabel(row.source) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="模块" width="150" show-overflow-tooltip>
+          <template #default="{ row }">{{ row.module || "-" }}</template>
         </el-table-column>
         <el-table-column label="用户ID" width="120" show-overflow-tooltip>
-          <template #default="{ row }">{{ getLogUserId(row) || "-" }}</template>
+          <template #default="{ row }">{{ row.userId || "-" }}</template>
         </el-table-column>
         <el-table-column label="时间" width="168">
           <template #default="{ row }">{{ formatTs(row.timestamp) }}</template>
         </el-table-column>
-        <el-table-column label="消息" min-width="280" show-overflow-tooltip>
+        <el-table-column label="内容" min-width="280" show-overflow-tooltip>
           <template #default="{ row }">
             <span class="log-list-panel__table-message">{{ getLogMessage(row) || "-" }}</span>
           </template>
@@ -101,17 +108,17 @@
 </template>
 
 <script lang="ts">
-import type { ILogEntry } from "@/types/api/track"
+import type { ILogEntry } from "@/types/api/log"
 import type { LogViewMode } from "../utils/logUtils"
 import {
-  formatLogJson,
+  formatLogRaw,
   formatTs,
   formatTsFull,
   getLevelType,
   getLogLevel,
   getLogMessage,
-  getLogModule,
-  getLogUserId
+  getSourceLabel,
+  getSourceTagType
 } from "../utils/logUtils"
 
 interface PaginationState {
@@ -163,12 +170,12 @@ export default defineComponent({
       onPageChange,
       formatTs,
       formatTsFull,
-      formatLogJson,
+      formatLogRaw,
       getLogLevel,
-      getLogUserId,
-      getLogModule,
       getLogMessage,
-      getLevelType
+      getLevelType,
+      getSourceLabel,
+      getSourceTagType
     }
   }
 })

@@ -22,7 +22,8 @@
 <template>
   <div class="data-logs">
     <logQueryBar
-      :bucket-id="logBucketId"
+      v-model:source="logSource"
+      :index-name="LOG_INDEX"
       v-model:query-text="queryText"
       v-model:time-preset="timePreset"
       v-model:custom-time-range="customTimeRange"
@@ -47,10 +48,9 @@
 </template>
 
 <script lang="ts">
-import type { ILogEntry } from "@/types/api/track"
+import type { ILogEntry, LogSource } from "@/types/api/log"
 import { ElMessage } from "element-plus"
-import { DEFAULT_LOG_BUCKET_ID } from "@/config/track"
-import { queryLogsApi } from "@/api/track"
+import { queryLogsApi } from "@/api/log"
 import logQueryBar from "./components/logQueryBar.vue"
 import logHistogram from "./components/logHistogram.vue"
 import logListPanel from "./components/logListPanel.vue"
@@ -70,9 +70,11 @@ export default defineComponent({
     logListPanel
   },
   setup() {
+    // 单桶：服务端与客户端日志同一个索引，靠 source 字段区分
+    const LOG_INDEX = "beaver-logs"
     const loading = ref(false)
     const logList = ref<ILogEntry[]>([])
-    const logBucketId = DEFAULT_LOG_BUCKET_ID
+    const logSource = ref<LogSource>("")
     const queryText = ref("*")
     const timePreset = ref("15m")
     const customTimeRange = ref<string[]>([])
@@ -91,15 +93,14 @@ export default defineComponent({
       }
       const { startTime, endTime } = getLogTimeRange(timePreset.value, customTimeRange.value)
       const filters = parseLogQuery(queryText.value)
-
       loading.value = true
       const res = await queryLogsApi({
         page: pagination.page,
         pageSize: pagination.pageSize,
-        bucketId: logBucketId,
+        // 来源过滤：server / main / render / flutter / 空=全部（单桶 beaver-logs，source 由上报方自报）
+        source: logSource.value || filters.source || undefined,
         level: filters.level || undefined,
         keyword: filters.keyword || undefined,
-        userFilter: filters.userFilter || undefined,
         startTime,
         endTime
       })
@@ -134,7 +135,8 @@ export default defineComponent({
     onMounted(fetchLogList)
 
     return {
-      logBucketId,
+      logSource,
+      LOG_INDEX,
       loading,
       displayLogs,
       histogramBars,

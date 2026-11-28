@@ -23,9 +23,14 @@
   <div class="log-query-bar">
     <div class="log-query-bar__top">
       <div class="log-query-bar__store">
-        <span class="log-query-bar__store-label">Logstore</span>
+        <el-radio-group :model-value="source || 'all'" size="small" @update:model-value="onSourceChange">
+          <el-radio-button v-for="item in sourceOptions" :key="item.value" :value="item.value">
+            {{ item.label }}
+          </el-radio-button>
+        </el-radio-group>
+        <span class="log-query-bar__store-label">索引</span>
         <span class="log-query-bar__store-name">{{ storeName }}</span>
-        <span class="log-query-bar__store-id">{{ bucketId }}</span>
+        <span class="log-query-bar__store-id">{{ indexName }}</span>
       </div>
       <div class="log-query-bar__time">
         <el-select :model-value="timePreset" style="width: 148px" @update:model-value="onTimePresetChange">
@@ -49,7 +54,7 @@
       <el-input
         :model-value="queryText"
         class="log-query-bar__search-input"
-        placeholder="输入查询语句，例如 * 或 level: error AND userId: 100000"
+        placeholder="输入查询语句，例如 * 或 level: error AND 关键词"
         clearable
         @update:model-value="onQueryTextChange"
         @keydown.enter="emit('search')"
@@ -62,18 +67,23 @@
 </template>
 
 <script lang="ts">
+import type { LogSource } from "@/types/api/log"
 import { logTimePresets } from "../utils/logUtils"
 
 export default defineComponent({
   name: "LogQueryBar",
   props: {
-    bucketId: {
+    source: {
+      type: String as PropType<LogSource>,
+      default: ""
+    },
+    indexName: {
       type: String,
-      required: true
+      default: "beaver-logs"
     },
     storeName: {
       type: String,
-      default: "客户端日志"
+      default: "日志"
     },
     queryText: {
       type: String,
@@ -92,8 +102,22 @@ export default defineComponent({
       default: false
     }
   },
-  emits: ["update:queryText", "update:timePreset", "update:customTimeRange", "search"],
+  emits: ["update:source", "update:queryText", "update:timePreset", "update:customTimeRange", "search"],
   setup(props, { emit }) {
+    const sourceOptions = [
+      { label: "全部", value: "all" },
+      { label: "服务端", value: "server" },
+      { label: "桌面主进程", value: "main" },
+      { label: "桌面渲染", value: "render" },
+      { label: "移动端", value: "flutter" }
+    ]
+
+    // 空串表示不过滤；UI 上用 all 表示，避免 el-radio-button 收空值。
+    const onSourceChange = (value: string) => {
+      emit("update:source", value === "all" ? "" : value)
+      emit("search")
+    }
+
     const onQueryTextChange = (value: string) => emit("update:queryText", value)
 
     const onTimePresetChange = (value: string) => {
@@ -110,7 +134,9 @@ export default defineComponent({
 
     return {
       timePresets: logTimePresets,
+      sourceOptions,
       emit,
+      onSourceChange,
       onQueryTextChange,
       onTimePresetChange,
       onCustomRangeChange
